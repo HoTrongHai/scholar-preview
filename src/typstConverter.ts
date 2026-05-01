@@ -36,6 +36,7 @@ export function snapshotToTypst(snapshot: NotebookSnapshot, tmpDir: string): str
   const parts: string[] = [typstPreamble()];
 
   let frontMatterEmitted = false;
+  const imgCounter = { n: 0 };
 
   for (const id of snapshot.cellOrder) {
     const cell = snapshot.cells[id];
@@ -63,7 +64,7 @@ export function snapshotToTypst(snapshot: NotebookSnapshot, tmpDir: string): str
       }
     } else {
       if (!frontMatterEmitted) { frontMatterEmitted = true; }
-      appendCodeCell(cell, id, tmpDir, parts);
+      appendCodeCell(cell, id, tmpDir, parts, imgCounter);
     }
   }
 
@@ -178,7 +179,8 @@ function appendCodeCell(
   cell: CellSnapshot,
   cellId: string,
   tmpDir: string,
-  parts: string[]
+  parts: string[],
+  imgCounter: { n: number }
 ): void {
   const directives = parseQuartoDirectives(cell.source);
   // fig-cap / caption
@@ -205,7 +207,6 @@ function appendCodeCell(
     }
   }
 
-  let imgIdx = 0;
   for (const out of cell.outputs) {
     if (out.dataUri) {
       const commaIdx = out.dataUri.indexOf(",");
@@ -214,18 +215,17 @@ function appendCodeCell(
       const ext =
         out.mime === "image/jpeg" ? "jpg" :
         out.mime === "image/svg+xml" ? "svg" : "png";
-      const fname = `img_${safeId(cellId)}_${imgIdx}.${ext}`;
+      const fname = `img_${imgCounter.n++}.${ext}`;
       fs.writeFileSync(path.join(tmpDir, fname), Buffer.from(base64, "base64"));
 
       const imgExpr = `image("${fname}", width: auto, height: auto)`;
       if (caption || label) {
-        const captionPart = caption ? `,\n  caption: [${caption}]` : "";
+        const captionPart = caption ? `,\n  caption: [${convertInline(caption)}]` : "";
         const labelPart = label ? ` <${label}>` : "";
         parts.push(`#figure(\n  ${imgExpr}${captionPart},\n)${labelPart}\n\n`);
       } else {
         parts.push(`#align(center)[#${imgExpr}]\n\n`);
       }
-      imgIdx++;
     } else if (out.text) {
       const text = out.text.trimEnd();
       if (!text) { continue; }
@@ -252,10 +252,6 @@ function chooseFence(code: string): string {
 
 function sanitizeLang(lang: string): string {
   return /^[a-zA-Z0-9_+\-#]+$/.test(lang) ? lang : "";
-}
-
-function safeId(id: string): string {
-  return id.replace(/[^a-zA-Z0-9]/g, "_").slice(0, 32);
 }
 
 /** Produce a Typst double-quoted string literal from a raw value. */
@@ -374,7 +370,7 @@ function convertMarkdownLine(line: string): string {
     // Typst expects a ratio for percentages: 80% → 80%  (valid Typst syntax)
     const widthExpr = width === "auto" ? "auto" : `${width}`;
     if (label) {
-      const capTypst = caption ? `[${caption}]` : `[]`;
+      const capTypst = caption ? `[${convertInline(caption)}]` : `[]`;
       return `#figure(image("${escStr(src)}", width: ${widthExpr}), caption: ${capTypst}) <${label}>`;
     }
     return `#align(center)[#image("${escStr(src)}", width: ${widthExpr})]`;
