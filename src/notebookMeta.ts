@@ -2,9 +2,11 @@ import { CellSnapshot, NotebookMeta } from "./protocol";
 
 export { NotebookMeta };
 
-/** Returns true if the markdown cell contains only a YAML front matter block with no body. */
+/** Returns true if the cell contains only a YAML front matter block with no body.
+ *  Accepts both markdown cells and raw cells (language === "raw"), since Quarto
+ *  notebooks use a raw cell as the YAML front matter cell. */
 export function isFrontMatterOnlyCell(cell: CellSnapshot): boolean {
-  if (cell.kind !== "markdown") { return false; }
+  if (cell.kind !== "markdown" && cell.language !== "raw") { return false; }
   const src = cell.source;
   if (!src.startsWith("---")) { return false; }
   const afterOpen = src.indexOf("\n");
@@ -15,7 +17,7 @@ export function isFrontMatterOnlyCell(cell: CellSnapshot): boolean {
 }
 
 /**
- * Extract document metadata from the YAML front matter of the first markdown cell.
+ * Extract document metadata from the YAML front matter of the first markdown or raw cell.
  * All YAML parsing lives here; both preview panels call this when building snapshots.
  */
 export function extractNotebookMeta(
@@ -24,7 +26,7 @@ export function extractNotebookMeta(
 ): NotebookMeta {
   const firstId = cellOrder[0];
   const firstCell = firstId ? cells[firstId] : undefined;
-  if (!firstCell || firstCell.kind !== "markdown") {
+  if (!firstCell || (firstCell.kind !== "markdown" && firstCell.language !== "raw")) {
     return { echoDefault: false };
   }
 

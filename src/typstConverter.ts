@@ -44,8 +44,19 @@ export function snapshotToTypst(snapshot: NotebookSnapshot, tmpDir: string): str
     const cell = snapshot.cells[id];
     if (!cell) { continue; }
 
+    // Front-matter-only cells (raw YAML cells, regardless of kind) contribute only the
+    // Typst preamble and are never rendered as body content.
+    if (cell.frontMatterOnly) {
+      if (!frontMatterEmitted) {
+        frontMatterEmitted = true;
+        const { frontMatter } = splitFrontMatter(cell.source);
+        if (frontMatter) { parts.push(frontMatterToTypst(frontMatter)); }
+      }
+      continue;
+    }
+
     if (cell.kind === "markdown") {
-      // Extract YAML front matter from the very first markdown cell only
+      // Regular markdown cell: extract front matter from the first one only.
       if (!frontMatterEmitted) {
         frontMatterEmitted = true;
         const { frontMatter, rest } = splitFrontMatter(cell.source);

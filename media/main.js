@@ -414,6 +414,11 @@ function patchCellNode(node, previous, nextCell) {
 
 function renderCellBody(cell) {
   if (cell.kind === "markdown") {
+    if (cell.language === "raw") {
+      // Raw cells hold YAML front matter (already extracted) or raw format output.
+      // Never render their source as markdown.
+      return "";
+    }
     return renderMarkdownCell(cell.source || "");
   }
 
