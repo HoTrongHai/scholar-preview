@@ -4,9 +4,11 @@ import * as os from "os";
 import * as path from "path";
 import * as crypto from "crypto";
 import { fetchDoiBib, fetchArxivBib } from "./bibFetch";
+import { extractNotebookMeta, isFrontMatterOnlyCell } from "./notebookMeta";
 import {
   CellSnapshot,
   HostToWebviewMessage,
+  NotebookMeta,
   NotebookSnapshot,
   OutputSnapshot,
   PatchOp,
@@ -261,6 +263,7 @@ export class NotebookPreviewViewProvider {
         source: change.cell.document.getText(),
         outputs: toOutputSnapshots(change.cell.outputs)
       };
+      nextCell.frontMatterOnly = isFrontMatterOnlyCell(nextCell);
 
       this.snapshot.cells[id] = nextCell;
       ops.push({ type: "recordCellSnapshot", id, cell: nextCell });
@@ -270,9 +273,20 @@ export class NotebookPreviewViewProvider {
       return;
     }
 
+    // Recompute notebookMeta if the first cell was among the changed cells.
+    const firstCellId = this.snapshot.cellOrder[0];
+    const firstCellChanged = ops.some(op => op.type === "recordCellSnapshot" && op.id === firstCellId);
+    if (firstCellChanged) {
+      this.snapshot.notebookMeta = extractNotebookMeta(this.snapshot.cells, this.snapshot.cellOrder);
+    }
+
     const baseVersion = this.snapshot.docVersion;
     this.snapshot.docVersion = nextVersion;
-    this.postMessage({ type: "patch", baseVersion, docVersion: nextVersion, ops });
+    const patchMsg: HostToWebviewMessage = {
+      type: "patch", baseVersion, docVersion: nextVersion, ops,
+      ...(firstCellChanged ? { notebookMeta: this.snapshot.notebookMeta } : {})
+    };
+    this.postMessage(patchMsg);
   }
 
   private handleWebviewMessage(message: WebviewToHostMessage): void {
@@ -464,18 +478,25 @@ ${renderedHtml}
 
 function buildMarkdownSnapshot(document: vscode.TextDocument, prevVersion: number): NotebookSnapshot {
   const id = document.uri.toString();
+  const source = document.getText();
   const cell: CellSnapshot = {
     id,
     kind: "markdown",
     language: "markdown",
-    source: document.getText(),
-    outputs: []
+    source,
+    outputs: [],
+    frontMatterOnly: undefined  // set below
   };
+  const order = [id];
+  const cells = { [id]: cell };
+  const notebookMeta = extractNotebookMeta(cells, order);
+  cell.frontMatterOnly = isFrontMatterOnlyCell(cell);
   return {
     docVersion: prevVersion + 1,
     activeCellId: id,
-    cellOrder: [id],
-    cells: { [id]: cell }
+    cellOrder: order,
+    cells,
+    notebookMeta
   };
 }
 
@@ -486,14 +507,15 @@ function buildSnapshot(document: vscode.NotebookDocument, prevVersion: number): 
   document.getCells().forEach((cell) => {
     const id = cell.document.uri.toString();
     order.push(id);
-
-    cells[id] = {
+    const snap: CellSnapshot = {
       id,
       kind: cell.kind === vscode.NotebookCellKind.Markup ? "markdown" : "code",
       language: cell.document.languageId,
       source: cell.document.getText(),
       outputs: toOutputSnapshots(cell.outputs)
     };
+    snap.frontMatterOnly = isFrontMatterOnlyCell(snap);
+    cells[id] = snap;
   });
 
   const activeSelection = vscode.window.activeNotebookEditor?.selections[0];
@@ -503,7 +525,8 @@ function buildSnapshot(document: vscode.NotebookDocument, prevVersion: number): 
     docVersion: prevVersion + 1,
     activeCellId,
     cellOrder: order,
-    cells
+    cells,
+    notebookMeta: extractNotebookMeta(cells, order)
   };
 }
 

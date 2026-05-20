@@ -9,7 +9,8 @@ const state = {
   notebookDir: "",
   cellOrder: [],
   cellStateById: {},
-  nodeById: new Map()
+  nodeById: new Map(),
+  echoDefault: false
 };
 
 const cellList = document.getElementById("cellList");
@@ -171,7 +172,7 @@ window.addEventListener("message", (event) => {
       return;
     }
 
-    applyPatch(message.ops, message.docVersion);
+    applyPatch(message.ops, message.docVersion, message.notebookMeta);
   }
 });
 
@@ -182,9 +183,14 @@ function applyFullSync(snapshot, notebookDir) {
   state.notebookDir = notebookDir;
   state.cellOrder = [...snapshot.cellOrder];
   state.cellStateById = { ...snapshot.cells };
+  // notebookMeta is computed by the host and carried in the snapshot.
+  state.notebookMeta = snapshot.notebookMeta ?? { echoDefault: false };
+  state.echoDefault = state.notebookMeta.echoDefault;
 
   state.nodeById.clear();
   cellList.innerHTML = "";
+
+  updateDocHeader();
 
   for (const id of state.cellOrder) {
     const node = createCellNode(state.cellStateById[id]);
@@ -192,7 +198,6 @@ function applyFullSync(snapshot, notebookDir) {
     cellList.appendChild(node);
   }
 
-  updateDocHeader();
   updateEmptyState();
   updateActiveVisual();
   renumberCrossRefs();
@@ -200,7 +205,24 @@ function applyFullSync(snapshot, notebookDir) {
   vscode.postMessage({ type: "ack", docVersion: state.docVersion });
 }
 
-function applyPatch(ops, docVersion) {
+function applyPatch(ops, docVersion, notebookMeta) {
+  // If the host recomputed notebookMeta (first cell changed), apply it now
+  // before processing ops so shouldRenderCodeSource uses the updated default.
+  if (notebookMeta) {
+    const prevEchoDefault = state.echoDefault;
+    state.notebookMeta = notebookMeta;
+    state.echoDefault = notebookMeta.echoDefault;
+    if (state.echoDefault !== prevEchoDefault) {
+      for (const cellId of state.cellOrder) {
+        const cellNode = state.nodeById.get(cellId);
+        const cellState = state.cellStateById[cellId];
+        if (cellNode && cellState && cellState.kind === "code") {
+          cellNode.className = getCellClassName(cellState);
+          cellNode.querySelector(".cell-body").innerHTML = renderCellBody(cellState);
+        }
+      }
+    }
+  }
   const contentOps = ops.filter((op) => op.type !== "setActiveCell");
   if (contentOps.length > 0) {
     statusText.textContent = "Updating\u2026";
@@ -319,7 +341,8 @@ function updateSingleCell(id, nextCell) {
 
   state.cellStateById[id] = nextCell;
 
-  // If the first cell changed, re-evaluate the doc header.
+  // If the first cell changed, update the doc header (title/author/date display).
+  // echoDefault is handled in applyPatch via the notebookMeta field from the host.
   if (state.cellOrder[0] === id) {
     updateDocHeader();
   }
@@ -333,9 +356,7 @@ function updateSingleCell(id, nextCell) {
 }
 
 function isFrontMatterOnly(cell) {
-  if (cell.kind !== "markdown") { return false; }
-  const fm = parseFrontMatter(cell.source || "");
-  return fm !== null && fm.rest.trim() === "";
+  return cell.frontMatterOnly === true;
 }
 
 function createCellNode(cell) {
@@ -450,9 +471,10 @@ function shouldRenderCodeSource(cell) {
     return false;
   }
 
-  // Default behavior: source is hidden unless explicitly enabled by directive.
+  // Cell-level directive takes priority; fall back to document-level default.
   const echoDirective = getEchoDirective(cell.source || "");
-  return echoDirective === "on";
+  if (echoDirective !== undefined) { return echoDirective === "on"; }
+  return state.echoDefault;
 }
 
 function getEchoDirective(source) {
@@ -648,48 +670,15 @@ function renumberCrossRefs() {
 }
 
 /**
- * Parse YAML-style front matter (--- ... ---) from the start of a source string.
- * Returns { meta, rest } or null if no front matter found.
- * Only handles simple scalar values — no full YAML parser needed.
- */
-function parseFrontMatter(source) {
-  if (!source.startsWith("---")) {
-    return null;
-  }
-  const afterOpen = source.indexOf("\n");
-  if (afterOpen < 0) { return null; }
-  const closeIdx = source.indexOf("\n---", afterOpen);
-  if (closeIdx < 0) { return null; }
-  const yamlBlock = source.slice(afterOpen + 1, closeIdx);
-  const rest = source.slice(closeIdx + 4).replace(/^\n/, ""); // skip \n--- and leading newline
-  const meta = {};
-  for (const line of yamlBlock.split(/\r?\n/)) {
-    const m = /^([\w-]+)\s*:\s*(.+)$/.exec(line.trim());
-    if (m) {
-      meta[m[1]] = m[2].replace(/^["']|["']$/g, "").trim();
-    }
-  }
-  return { meta, rest };
-}
-
-/**
  * Build and show/hide the doc header block based on the first cell's front matter.
  */
 function updateDocHeader() {
-  const firstId = state.cellOrder[0];
-  const firstCell = firstId ? state.cellStateById[firstId] : null;
-  if (!firstCell || firstCell.kind !== "markdown") {
+  const { title, author, date } = state.notebookMeta ?? {};
+  if (!title && !author && !date) {
     docHeader.hidden = true;
     docHeader.innerHTML = "";
     return;
   }
-  const fm = parseFrontMatter(firstCell.source || "");
-  if (!fm || (!fm.meta.title && !fm.meta.author && !fm.meta.date)) {
-    docHeader.hidden = true;
-    docHeader.innerHTML = "";
-    return;
-  }
-  const { title, author, date } = fm.meta;
   let html = "";
   if (title) {
     html += `<h1 class="doc-title">${escapeHtml(title)}</h1>`;

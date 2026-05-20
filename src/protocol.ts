@@ -1,11 +1,22 @@
 export type CellKind = "markdown" | "code";
 
+/** Parsed YAML front matter fields from the first markdown cell. */
+export interface NotebookMeta {
+  echoDefault: boolean;
+  title?: string;
+  author?: string;
+  affiliation?: string;
+  date?: string;
+}
+
 export interface CellSnapshot {
   id: string;
   kind: CellKind;
   language: string;
   source: string;
   outputs: OutputSnapshot[];
+  /** True when this markdown cell contains only YAML front matter (no body text). */
+  frontMatterOnly?: boolean;
 }
 
 export interface OutputSnapshot {
@@ -19,6 +30,8 @@ export interface NotebookSnapshot {
   activeCellId?: string;
   cellOrder: string[];
   cells: Record<string, CellSnapshot>;
+  /** Document-level metadata derived from YAML front matter of the first markdown cell. */
+  notebookMeta: NotebookMeta;
 }
 
 export type PatchOp =
@@ -57,6 +70,8 @@ export type HostToWebviewMessage =
       baseVersion: number;
       docVersion: number;
       ops: PatchOp[];
+      /** Updated notebook meta, sent whenever the first cell changes. */
+      notebookMeta?: NotebookMeta;
     }
   | {
       type: "status";

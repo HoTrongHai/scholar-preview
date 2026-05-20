@@ -1,4 +1,4 @@
-/* global escapeHtml, resolveImageSrc, sanitizeHref, extractMathTokens, restoreMathTokens, hljs, parseFrontMatter */
+/* global escapeHtml, resolveImageSrc, sanitizeHref, extractMathTokens, restoreMathTokens, hljs */
 
 /**
  * markdown-renderer.js — Enhanced markdown block & inline renderer.
@@ -74,6 +74,13 @@ function renderInlineMarkdown(text) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Block renderer
 // ─────────────────────────────────────────────────────────────────────────────
+
+/** Strip YAML front matter (--- ... ---) and return the body, or null if none. */
+function parseFrontMatter(source) {
+  const match = source.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+  if (!match) { return null; }
+  return { yaml: match[1], rest: source.slice(match[0].length) };
+}
 
 // eslint-disable-next-line no-unused-vars
 function renderMarkdownCell(source) {

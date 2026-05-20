@@ -7,6 +7,7 @@ import * as child_process from "child_process";
 import { CellSnapshot, NotebookSnapshot, OutputSnapshot } from "./protocol";
 import { snapshotToTypst, collectCitationKeys } from "./typstConverter";
 import { fetchDoiBib, fetchArxivBib, BibEntry, httpsGetBuffer } from "./bibFetch";
+import { extractNotebookMeta, isFrontMatterOnlyCell } from "./notebookMeta";
 
 const TEXT_DECODER = new TextDecoder("utf-8");
 
@@ -433,18 +434,22 @@ export class TypstPreviewPanel {
       textEditor.document.uri.scheme !== "vscode-notebook-cell"
     ) {
       const id = textEditor.document.uri.toString();
+      const source = textEditor.document.getText();
+      const cell: CellSnapshot = {
+        id,
+        kind: "markdown" as const,
+        language: "markdown",
+        source,
+        outputs: [],
+      };
+      const cellOrder = [id];
+      const cells = { [id]: cell };
+      cell.frontMatterOnly = isFrontMatterOnlyCell(cell);
       return {
         docVersion: 1,
-        cellOrder: [id],
-        cells: {
-          [id]: {
-            id,
-            kind: "markdown",
-            language: "markdown",
-            source: textEditor.document.getText(),
-            outputs: [],
-          },
-        },
+        cellOrder,
+        cells,
+        notebookMeta: extractNotebookMeta(cells, cellOrder),
       };
     }
 
@@ -457,16 +462,18 @@ export class TypstPreviewPanel {
     for (const cell of editor.notebook.getCells()) {
       const id = cell.document.uri.toString();
       cellOrder.push(id);
-      cells[id] = {
+      const snap: CellSnapshot = {
         id,
         kind: cell.kind === vscode.NotebookCellKind.Markup ? "markdown" : "code",
         language: cell.document.languageId,
         source: cell.document.getText(),
         outputs: extractOutputs(cell.outputs),
       };
+      snap.frontMatterOnly = isFrontMatterOnlyCell(snap);
+      cells[id] = snap;
     }
 
-    return { docVersion: 1, cellOrder, cells };
+    return { docVersion: 1, cellOrder, cells, notebookMeta: extractNotebookMeta(cells, cellOrder) };
   }
 
   private getHtml(webview: vscode.Webview): string {

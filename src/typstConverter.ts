@@ -37,6 +37,8 @@ export function snapshotToTypst(snapshot: NotebookSnapshot, tmpDir: string): str
 
   let frontMatterEmitted = false;
   const imgCounter = { n: 0 };
+  // Read echo default from snapshot (computed once by extractNotebookMeta on the host)
+  const echoDefault = snapshot.notebookMeta.echoDefault;
 
   for (const id of snapshot.cellOrder) {
     const cell = snapshot.cells[id];
@@ -64,7 +66,7 @@ export function snapshotToTypst(snapshot: NotebookSnapshot, tmpDir: string): str
       }
     } else {
       if (!frontMatterEmitted) { frontMatterEmitted = true; }
-      appendCodeCell(cell, id, tmpDir, parts, imgCounter);
+      appendCodeCell(cell, id, tmpDir, parts, imgCounter, echoDefault);
     }
   }
 
@@ -180,7 +182,8 @@ function appendCodeCell(
   cellId: string,
   tmpDir: string,
   parts: string[],
-  imgCounter: { n: number }
+  imgCounter: { n: number },
+  echoDefault: boolean
 ): void {
   const directives = parseQuartoDirectives(cell.source);
   // fig-cap / caption
@@ -190,9 +193,11 @@ function appendCodeCell(
   // Normalise: strip leading "fig-" if present so @fig-xxx works, keep as-is otherwise
   const label = rawLabel;
 
-  // echo: defaults to true; suppress source when set to "false" or "off"
-  const echoVal = (directives["echo"] ?? "true").toLowerCase();
-  const echo = echoVal !== "false" && echoVal !== "off";
+  // echo: use document-level default unless overridden by a cell-level directive
+  const echoVal = directives["echo"]?.toLowerCase();
+  const echo = echoVal !== undefined
+    ? (echoVal === "true" || echoVal === "on")
+    : echoDefault;
   if (echo && cell.source.trim()) {
     // Strip #| directive lines from the displayed source
     const displaySource = cell.source
