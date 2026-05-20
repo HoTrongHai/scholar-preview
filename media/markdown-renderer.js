@@ -6,7 +6,7 @@
  * Loaded after main.js; overrides renderMarkdownCell and renderInlineMarkdown
  * defined there. Depends on helpers defined in main.js (escapeHtml,
  * resolveImageSrc, sanitizeHref, extractMathTokens, restoreMathTokens,
- * parseFrontMatter, hljs).
+ * hljs).
  *
  * New capabilities vs the baseline main.js versions:
  *   • GFM pipe tables  (| col | col |  with :---: alignment)
@@ -76,19 +76,9 @@ function renderInlineMarkdown(text) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Strip YAML front matter (--- ... ---) and return the body, or null if none. */
-function parseFrontMatter(source) {
-  const match = source.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
-  if (!match) { return null; }
-  return { yaml: match[1], rest: source.slice(match[0].length) };
-}
-
 // eslint-disable-next-line no-unused-vars
 function renderMarkdownCell(source) {
-  // Strip YAML front matter; the doc header is handled separately.
-  const fm = parseFrontMatter(source);
-  const bodySource = fm ? fm.rest : source;
-
-  const { tokenized, displayMaths, inlineMaths } = extractMathTokens(bodySource);
+  const { tokenized, displayMaths, inlineMaths } = extractMathTokens(source);
   const lines = tokenized.split(/\r?\n/);
 
   const blocks = [];

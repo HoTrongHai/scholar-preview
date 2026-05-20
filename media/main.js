@@ -686,8 +686,8 @@ function renumberCrossRefs() {
  * Build and show/hide the doc header block based on the first cell's front matter.
  */
 function updateDocHeader() {
-  const { title, author, date } = state.notebookMeta ?? {};
-  if (!title && !author && !date) {
+  const { title, author, affiliation, date } = state.notebookMeta ?? {};
+  if (!title && !author && !affiliation && !date) {
     docHeader.hidden = true;
     docHeader.innerHTML = "";
     return;
@@ -696,7 +696,13 @@ function updateDocHeader() {
   if (title) {
     html += `<h1 class="doc-title">${escapeHtml(title)}</h1>`;
   }
-  const meta = [author, date].filter(Boolean);
+  if (author) {
+    html += `<p class="doc-meta">${escapeHtml(author)}</p>`;
+  }
+  if (affiliation) {
+    html += `<p class="doc-affiliation">${escapeHtml(affiliation)}</p>`;
+  }
+  const meta = [date].filter(Boolean);
   if (meta.length > 0) {
     html += `<p class="doc-meta">${meta.map(escapeHtml).join(" \u00b7 ")}</p>`;
   }

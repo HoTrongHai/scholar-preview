@@ -327,6 +327,13 @@ figcaption {
   margin: 0;
 }
 
+.doc-affiliation {
+  font-size: 0.875em;
+  font-style: italic;
+  color: var(--muted);
+  margin: 0;
+}
+
 /* Reference list at bottom */
 .reference-list {
   padding: 0 1.5rem 2rem;

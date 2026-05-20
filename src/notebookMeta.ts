@@ -2,6 +2,14 @@ import { CellSnapshot, NotebookMeta } from "./protocol";
 
 export { NotebookMeta };
 
+/** Strip a YAML front matter block from a markdown cell source.
+ *  Only applied to non-front-matter-only markdown cells (those that have body content
+ *  after the --- block). The host strips before sending to any renderer. */
+export function stripFrontMatterSource(source: string): string {
+  const m = source.match(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/);
+  return m ? source.slice(m[0].length) : source;
+}
+
 /** Returns true if the cell contains only a YAML front matter block with no body.
  *  Accepts both markdown cells and raw cells (language === "raw"), since Quarto
  *  notebooks use a raw cell as the YAML front matter cell. */

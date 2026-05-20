@@ -35,48 +35,26 @@ export function collectCitationKeys(snapshot: NotebookSnapshot): CitationRef[] {
 export function snapshotToTypst(snapshot: NotebookSnapshot, tmpDir: string): string {
   const parts: string[] = [typstPreamble()];
 
-  let frontMatterEmitted = false;
+  // Emit title block from already-parsed metadata (no need to re-parse YAML here).
+  parts.push(frontMatterToTypst(snapshot.notebookMeta));
+
   const imgCounter = { n: 0 };
-  // Read echo default from snapshot (computed once by extractNotebookMeta on the host)
   const echoDefault = snapshot.notebookMeta.echoDefault;
 
   for (const id of snapshot.cellOrder) {
     const cell = snapshot.cells[id];
     if (!cell) { continue; }
 
-    // Front-matter-only cells (raw YAML cells, regardless of kind) contribute only the
-    // Typst preamble and are never rendered as body content.
-    if (cell.frontMatterOnly) {
-      if (!frontMatterEmitted) {
-        frontMatterEmitted = true;
-        const { frontMatter } = splitFrontMatter(cell.source);
-        if (frontMatter) { parts.push(frontMatterToTypst(frontMatter)); }
-      }
-      continue;
-    }
+    // Front-matter-only cells are already represented in notebookMeta; skip body.
+    if (cell.frontMatterOnly) { continue; }
 
     if (cell.kind === "markdown") {
-      // Regular markdown cell: extract front matter from the first one only.
-      if (!frontMatterEmitted) {
-        frontMatterEmitted = true;
-        const { frontMatter, rest } = splitFrontMatter(cell.source);
-        if (frontMatter) {
-          parts.push(frontMatterToTypst(frontMatter));
-        }
-        const converted = markdownToTypst(rest);
-        if (converted.trim()) {
-          parts.push(converted);
-          parts.push("\n\n");
-        }
-        continue;
-      }
       const converted = markdownToTypst(cell.source);
       if (converted.trim()) {
         parts.push(converted);
         parts.push("\n\n");
       }
     } else {
-      if (!frontMatterEmitted) { frontMatterEmitted = true; }
       appendCodeCell(cell, id, tmpDir, parts, imgCounter, echoDefault);
     }
   }
@@ -84,41 +62,20 @@ export function snapshotToTypst(snapshot: NotebookSnapshot, tmpDir: string): str
   return parts.join("");
 }
 
-/** Split a markdown string into YAML front matter and the rest.
- *  Returns `frontMatter` as a key→value map if a `---` block is present. */
-function splitFrontMatter(source: string): { frontMatter: Record<string, string> | null; rest: string } {
-  const lines = source.split("\n");
-  if (lines[0].trim() !== "---") {
-    return { frontMatter: null, rest: source };
-  }
-  const closeIdx = lines.findIndex((l, i) => i > 0 && l.trim() === "---");
-  if (closeIdx < 0) {
-    return { frontMatter: null, rest: source };
-  }
-  const yamlLines = lines.slice(1, closeIdx);
-  const rest = lines.slice(closeIdx + 1).join("\n");
-  const frontMatter: Record<string, string> = {};
-  for (const line of yamlLines) {
-    const m = line.match(/^([\w-]+)\s*:\s*"?([^"]*)"?\s*$/);
-    if (m) { frontMatter[m[1].toLowerCase().trim()] = m[2].trim(); }
-  }
-  return { frontMatter, rest };
-}
-
-/** Render a front matter map as a Typst title block. */
-function frontMatterToTypst(fm: Record<string, string>): string {
+/** Render document metadata as a Typst title block. */
+function frontMatterToTypst(meta: { title?: string; author?: string; affiliation?: string; date?: string }): string {
   const parts: string[] = [];
-  if (fm["title"]) {
-    parts.push(`#align(center, text(size: 20pt, weight: "bold")[${escTypst(fm["title"])}])\n`);
+  if (meta.title) {
+    parts.push(`#align(center, text(size: 20pt, weight: "bold")[${escTypst(meta.title)}])\n`);
   }
-  if (fm["author"]) {
-    parts.push(`#align(center, text(size: 13pt)[${escTypst(fm["author"])}])\n`);
+  if (meta.author) {
+    parts.push(`#align(center, text(size: 13pt)[${escTypst(meta.author)}])\n`);
   }
-  if (fm["affiliation"]) {
-    parts.push(`#align(center, text(size: 11pt, style: "italic")[${escTypst(fm["affiliation"])}])\n`);
+  if (meta.affiliation) {
+    parts.push(`#align(center, text(size: 11pt, style: "italic")[${escTypst(meta.affiliation)}])\n`);
   }
-  if (fm["date"]) {
-    parts.push(`#align(center, text(size: 11pt)[${escTypst(fm["date"])}])\n`);
+  if (meta.date) {
+    parts.push(`#align(center, text(size: 11pt)[${escTypst(meta.date)}])\n`);
   }
   if (parts.length > 0) {
     parts.push("#v(1.5em)\n");

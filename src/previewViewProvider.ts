@@ -4,7 +4,7 @@ import * as os from "os";
 import * as path from "path";
 import * as crypto from "crypto";
 import { fetchDoiBib, fetchArxivBib } from "./bibFetch";
-import { extractNotebookMeta, isFrontMatterOnlyCell } from "./notebookMeta";
+import { extractNotebookMeta, isFrontMatterOnlyCell, stripFrontMatterSource } from "./notebookMeta";
 import {
   CellSnapshot,
   HostToWebviewMessage,
@@ -264,6 +264,7 @@ export class NotebookPreviewViewProvider {
         outputs: toOutputSnapshots(change.cell.outputs)
       };
       nextCell.frontMatterOnly = isFrontMatterOnlyCell(nextCell);
+      if (!nextCell.frontMatterOnly) { nextCell.source = stripFrontMatterSource(nextCell.source); }
 
       this.snapshot.cells[id] = nextCell;
       ops.push({ type: "recordCellSnapshot", id, cell: nextCell });
@@ -491,6 +492,7 @@ function buildMarkdownSnapshot(document: vscode.TextDocument, prevVersion: numbe
   const cells = { [id]: cell };
   const notebookMeta = extractNotebookMeta(cells, order);
   cell.frontMatterOnly = isFrontMatterOnlyCell(cell);
+  if (!cell.frontMatterOnly) { cell.source = stripFrontMatterSource(cell.source); }
   return {
     docVersion: prevVersion + 1,
     activeCellId: id,

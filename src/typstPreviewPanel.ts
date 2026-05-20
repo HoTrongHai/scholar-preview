@@ -7,7 +7,7 @@ import * as child_process from "child_process";
 import { CellSnapshot, NotebookSnapshot, OutputSnapshot } from "./protocol";
 import { snapshotToTypst, collectCitationKeys } from "./typstConverter";
 import { fetchDoiBib, fetchArxivBib, BibEntry, httpsGetBuffer } from "./bibFetch";
-import { extractNotebookMeta, isFrontMatterOnlyCell } from "./notebookMeta";
+import { extractNotebookMeta, isFrontMatterOnlyCell, stripFrontMatterSource } from "./notebookMeta";
 
 const TEXT_DECODER = new TextDecoder("utf-8");
 
@@ -470,6 +470,7 @@ export class TypstPreviewPanel {
         outputs: extractOutputs(cell.outputs),
       };
       snap.frontMatterOnly = isFrontMatterOnlyCell(snap);
+      if (!snap.frontMatterOnly) { snap.source = stripFrontMatterSource(snap.source); }
       cells[id] = snap;
     }
 
