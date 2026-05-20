@@ -2,7 +2,7 @@
   "name": "scholar-preview",
   "displayName": "Scholar Preview",
   "description": "Live notebook preview with Typst export, citation auto-fetch (DOI/arXiv), cross-references, and bibliography generation.",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "publisher": "slxuphys",
   "repository": {
     "type": "git",
