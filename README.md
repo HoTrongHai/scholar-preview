@@ -44,18 +44,37 @@ A VS Code extension that opens a live, typeset preview of a Jupyter notebook (or
 | `#\| fig-cap: "..."` | Figure caption in `#figure(...)` |
 | `#\| label: "fig-..."` | Figure label for cross-references |
 | `#\| fig-label: "..."` | Alternative label key |
+| `#\| eq: display` | Renders `text/latex` output as a numbered display equation |
+| `#\| eq: inline` | Renders `text/latex` output inline (default) |
+| `#\| label: "eq-..."` | Equation label for `@eq-...` cross-references |
 
 ### YAML Front Matter
-Add a metadata block to the first Markdown cell:
+Add a metadata block to the first cell. Both **Markdown cells** with a `---` block and **raw cells** (`cell_type: "raw"`, as used by Quarto) are supported:
 ```yaml
 ---
 title: Non-Equilibrium Statistical Mechanics
 author: John Smith
 affiliation: Department of Physics, University of XYZ
 date: 2024-06-01
+echo: true
 ---
 ```
-Renders as a centred title block. The raw `---` block is stripped from the preview.
+Renders as a centred title block in both preview modes. The raw `---` block is stripped from the preview on the host side before any renderer sees it. The `echo` key sets the default echo state for all code cells.
+
+### `text/latex` Cell Outputs
+Cell outputs with MIME type `text/latex` (e.g. from SymPy's `display()`) are captured and rendered as math:
+- **Inline** (default): rendered inline alongside any text output.
+- **Display / numbered**: add `#| eq: display` to the code cell. Combines with `#| label: eq-...` for `@eq-...` cross-references.
+
+```python
+#| eq: display
+#| label: eq-schrodinger
+from sympy import *
+psi = Function('psi'); x, t, hbar, m, V = symbols('x t hbar m V')
+display(Eq(I*hbar*diff(psi(x,t),t), -hbar**2/(2*m)*diff(psi(x,t),x,2) + V*psi(x,t)))
+```
+
+Rendered via **KaTeX** in the HTML preview and **mitex** in the Typst preview.
 
 ### Bibliography Auto-Fetch
 Both preview modes resolve `@doi:…` and `@arxiv:…` citations automatically — no manual `.bib` file required.
