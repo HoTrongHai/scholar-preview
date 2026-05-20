@@ -536,6 +536,7 @@ function toOutputSnapshots(outputs: readonly vscode.NotebookCellOutput[]): Outpu
     for (const item of output.items) {
       if (
         item.mime === "text/plain" ||
+        item.mime === "text/latex" ||
         item.mime === "text/markdown" ||
         item.mime === "text/html" ||
         item.mime === "application/vnd.code.notebook.stdout" ||

@@ -169,7 +169,7 @@ main {
 }
 
 .cell-markdown .cell-body {
-  padding: 2px 0;
+  padding: 10px 10px 0;
 }
 
 .code-source {
@@ -204,6 +204,18 @@ main {
 
 .output-error {
   border-color: #d16969;
+}
+
+/* text/latex outputs: match markdown font-size so KaTeX 1em resolves to 16px,
+   the same as inside .markdown-content. */
+.output-latex {
+  font-size: 16px;
+  padding: 6px 2px;
+  overflow-x: auto;
+}
+
+.output-latex-inline {
+  font-size: 16px;
 }
 
 .output-html {

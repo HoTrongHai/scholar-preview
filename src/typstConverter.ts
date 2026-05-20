@@ -231,6 +231,25 @@ function appendCodeCell(
       } else {
         parts.push(`#align(center)[#${imgExpr}]\n\n`);
       }
+    } else if (out.mime === "text/latex" && out.text) {
+      const src = out.text.trim();
+      // Strip any existing delimiters to get the raw LaTeX expression.
+      const hasDisplay = src.startsWith("$$") && src.endsWith("$$") && src.length > 4;
+      const hasInline  = !hasDisplay && src.startsWith("$") && src.endsWith("$") && src.length > 2;
+      const raw = hasDisplay ? src.slice(2, -2).trim() : hasInline ? src.slice(1, -1).trim() : src;
+      const eqMode = directives["eq"]?.toLowerCase();
+      if (eqMode === "display") {
+        // Numbered display. Attach label if it has an eq- prefix.
+        const eqLabelVal = label.startsWith("eq-") ? label : "";
+        if (eqLabelVal) {
+          parts.push(`#mitex("${escLatex(raw)}") <${eqLabelVal}>\n\n`);
+        } else {
+          parts.push(`#mitex("${escLatex(raw)}")\n\n`);
+        }
+      } else {
+        // Default / inline.
+        parts.push(`#mi("${escLatex(raw)}")\n\n`);
+      }
     } else if (out.text) {
       const text = out.text.trimEnd();
       if (!text) { continue; }

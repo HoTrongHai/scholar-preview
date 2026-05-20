@@ -546,7 +546,11 @@ function extractOutputs(outputs: readonly vscode.NotebookCellOutput[]): OutputSn
   const list: OutputSnapshot[] = [];
   for (const output of outputs) {
     for (const item of output.items) {
-      if (
+      if (item.mime === "text/latex") {
+        // Prefer text/latex over plain text — handle before the break-on-first-text logic.
+        try { list.push({ mime: item.mime, text: TEXT_DECODER.decode(item.data) }); } catch { /* skip */ }
+        break;
+      } else if (
         item.mime === "text/plain" ||
         item.mime === "application/vnd.code.notebook.stdout" ||
         item.mime === "application/vnd.code.notebook.stderr" ||

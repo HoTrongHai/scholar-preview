@@ -440,15 +440,23 @@ function renderCellBody(cell) {
 function parseFigureDirectives(source) {
   let cap = null;
   let label = null;
+  let eq = null;
+  let eqLabel = null;
   for (const line of String(source || "").split(/\r?\n/)) {
     const trimmed = line.trim();
     const capMatch = /^#\|\s*fig-cap\s*:\s*(.+)$/i.exec(trimmed);
     if (capMatch) { cap = capMatch[1].trim().replace(/^["']|["']$/g, ""); continue; }
-    // Accept both "label: fig-*" and "fig-label: fig-*" (consistent with Typst side)
-    const labelMatch = /^#\|\s*(?:fig-)?label\s*:\s*(fig-[a-z0-9_-]+)\s*$/i.exec(trimmed);
-    if (labelMatch) { label = labelMatch[1]; }
+    // Accept both "label: fig-*" and "fig-label: fig-*" for figure labels.
+    const figLabelMatch = /^#\|\s*(?:fig-)?label\s*:\s*(fig-[a-z0-9_-]+)\s*$/i.exec(trimmed);
+    if (figLabelMatch) { label = figLabelMatch[1]; continue; }
+    // "label: eq-*" for equation cross-reference labels.
+    const eqLabelMatch = /^#\|\s*label\s*:\s*(eq-[a-z0-9_-]+)\s*$/i.exec(trimmed);
+    if (eqLabelMatch) { eqLabel = eqLabelMatch[1]; continue; }
+    // "eq: display" | "eq: inline"
+    const eqMatch = /^#\|\s*eq\s*:\s*(display|inline)\s*$/i.exec(trimmed);
+    if (eqMatch) { eq = eqMatch[1].toLowerCase(); }
   }
-  return { cap, label };
+  return { cap, label, eq, eqLabel };
 }
 
 function stripPreviewDirectiveLines(source) {
@@ -746,6 +754,7 @@ function renderOutputs(outputs, figDirectives) {
 
   const hasImage = outputs.some((o) => o.dataUri);
   const hasHtml = outputs.some((o) => o.mime === "text/html");
+  const hasLatex = outputs.some((o) => o.mime === "text/latex");
 
   return outputs
     .filter((output) => {
@@ -756,6 +765,10 @@ function renderOutputs(outputs, figDirectives) {
       // Suppress text/plain repr when a richer text/html output is present
       // (e.g. pandas DataFrame renders both).
       if (hasHtml && output.mime === "text/plain") {
+        return false;
+      }
+      // Suppress text/plain repr when text/latex is present.
+      if (hasLatex && output.mime === "text/plain") {
         return false;
       }
       return true;
@@ -775,6 +788,28 @@ function renderOutputs(outputs, figDirectives) {
         return `<div class="output-html">${output.text || ""}</div>`;
       }
 
+      if (output.mime === "text/latex") {
+        let math = (output.text || "").trim();
+        // Strip outer $$ or $ delimiters added by IPython/SymPy before passing to KaTeX.
+        if (math.startsWith("$$") && math.endsWith("$$") && math.length > 4) {
+          math = math.slice(2, -2).trim();
+        } else if (math.startsWith("$") && math.endsWith("$") && math.length > 2) {
+          math = math.slice(1, -1).trim();
+        }
+        const eqMode  = figDirectives ? figDirectives.eq : null;
+        const eqLabel = figDirectives ? figDirectives.eqLabel : null;
+        // eslint-disable-next-line no-undef
+        if (eqMode === "display") {
+          // Numbered display equation — same .katex-display-eq structure as markdown cells.
+          // eslint-disable-next-line no-undef
+          const rendered = katex.renderToString(math, { displayMode: true, throwOnError: false });
+          const labelAttr = eqLabel ? ` id="${eqLabel}" data-eq-label="${eqLabel}"` : "";
+          return `<div class="output-latex"><div class="katex-display-eq"${labelAttr}><div class="katex-display-content">${rendered}</div><span class="eq-number"></span></div></div>`;
+        }
+        // Default / "inline": render inline.
+        // eslint-disable-next-line no-undef
+        return `<span class="output-latex-inline">${katex.renderToString(math, { displayMode: false, throwOnError: false })}</span>`;
+      }
       const safeText = escapeHtml(output.text || "");
       const mimeLabel = output.mime || "text/plain";
       const className = output.mime === "application/vnd.code.notebook.stderr" || output.mime === "application/vnd.code.notebook.error"
