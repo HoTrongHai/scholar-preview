@@ -251,7 +251,7 @@ export class NotebookPreviewViewProvider {
 
     for (const change of event.cellChanges) {
       // Skip if neither source nor outputs changed (e.g. only metadata/executionSummary).
-      if (change.document === undefined && change.outputs === undefined) {
+      if (change.document === undefined && change.outputs === undefined && change.metadata === undefined) {
         continue;
       }
 
@@ -261,7 +261,8 @@ export class NotebookPreviewViewProvider {
         kind: change.cell.kind === vscode.NotebookCellKind.Markup ? "markdown" : "code",
         language: change.cell.document.languageId,
         source: change.cell.document.getText(),
-        outputs: toOutputSnapshots(change.cell.outputs)
+        outputs: toOutputSnapshots(change.cell.outputs),
+        attachments: toAttachmentDataUris(change.cell.metadata)
       };
       nextCell.frontMatterOnly = isFrontMatterOnlyCell(nextCell);
       if (!nextCell.frontMatterOnly) { nextCell.source = stripFrontMatterSource(nextCell.source); }
@@ -514,7 +515,8 @@ function buildSnapshot(document: vscode.NotebookDocument, prevVersion: number): 
       kind: cell.kind === vscode.NotebookCellKind.Markup ? "markdown" : "code",
       language: cell.document.languageId,
       source: cell.document.getText(),
-      outputs: toOutputSnapshots(cell.outputs)
+      outputs: toOutputSnapshots(cell.outputs),
+      attachments: toAttachmentDataUris(cell.metadata)
     };
     snap.frontMatterOnly = isFrontMatterOnlyCell(snap);
     cells[id] = snap;
@@ -530,6 +532,25 @@ function buildSnapshot(document: vscode.NotebookDocument, prevVersion: number): 
     cells,
     notebookMeta: extractNotebookMeta(cells, order)
   };
+}
+
+/** Convert Jupyter's cell.metadata.attachments MIME bundles into webview-safe data URIs. */
+function toAttachmentDataUris(metadata: { [key: string]: any }): Record<string, string> | undefined {
+  const rawAttachments = metadata.attachments;
+  if (!rawAttachments || typeof rawAttachments !== "object") { return undefined; }
+
+  const attachments: Record<string, string> = {};
+  for (const [name, bundle] of Object.entries(rawAttachments)) {
+    if (!bundle || typeof bundle !== "object") { continue; }
+    for (const mime of ["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"]) {
+      const value = (bundle as Record<string, unknown>)[mime];
+      if (typeof value !== "string") { continue; }
+      const base64 = value.replace(/\s/g, "");
+      attachments[name] = `data:${mime};base64,${base64}`;
+      break;
+    }
+  }
+  return Object.keys(attachments).length > 0 ? attachments : undefined;
 }
 
 function toOutputSnapshots(outputs: readonly vscode.NotebookCellOutput[]): OutputSnapshot[] {

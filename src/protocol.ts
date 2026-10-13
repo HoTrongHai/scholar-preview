@@ -15,6 +15,8 @@ export interface CellSnapshot {
   language: string;
   source: string;
   outputs: OutputSnapshot[];
+  /** Embedded Jupyter Markdown attachments keyed by attachment filename. */
+  attachments?: Record<string, string>;
   /** True when this markdown cell contains only YAML front matter (no body text). */
   frontMatterOnly?: boolean;
 }

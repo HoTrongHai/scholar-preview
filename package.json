@@ -27,22 +27,22 @@
     "commands": [
       {
         "command": "scholarPreview.openSidepanePreview",
-        "category": "Scholar Preview",
+        "category": "Kaio Scholar",
         "title": "Open HTML Preview"
       },
       {
         "command": "scholarPreview.toggleFollowActiveCell",
-        "category": "Scholar Preview",
+        "category": "Kaio Scholar",
         "title": "Toggle Follow Active Cell"
       },
       {
         "command": "scholarPreview.refreshPreview",
-        "category": "Scholar Preview",
+        "category": "Kaio Scholar",
         "title": "Refresh Preview"
       },
       {
         "command": "scholarPreview.openTypstPreview",
-        "category": "Scholar Preview",
+        "category": "Kaio Scholar",
         "title": "Open Typst Preview"
       }
     ],

@@ -14,7 +14,7 @@ A VS Code extension that opens a live, typeset preview of a Jupyter notebook (or
 - Preview is preserved when switching to unrelated editors.
 
 ### Typst Paged Preview
-- Opens as a separate side panel via **"Notebook Preview: Open Typst Paged Preview"** in the Command Palette or the notebook title-bar button.
+- Opens as a separate side panel via **"Kaio Scholar: Open Typst Preview"** in the Command Palette or the notebook title-bar button.
 - Continuous live updates via `typst watch` — pages update automatically as you edit, with no blink (images swapped in-place).
 - **Export to PDF** button — runs `typst compile` and opens the PDF.
 - **Download `.typ` source** button — saves the generated Typst file for further editing.

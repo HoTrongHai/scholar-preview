@@ -399,8 +399,9 @@ function patchCellNode(node, previous, nextCell) {
 
   const sourceChanged = previous.source !== nextCell.source;
   const outputsChanged = JSON.stringify(previous.outputs) !== JSON.stringify(nextCell.outputs);
+  const attachmentsChanged = JSON.stringify(previous.attachments) !== JSON.stringify(nextCell.attachments);
 
-  if (sourceChanged) {
+  if (sourceChanged || attachmentsChanged) {
     node.querySelector(".cell-body").innerHTML = renderCellBody(nextCell);
   }
 
@@ -419,7 +420,14 @@ function renderCellBody(cell) {
       // Never render their source as markdown.
       return "";
     }
-    return renderMarkdownCell(cell.source || "");
+    let source = cell.source || "";
+    if (cell.attachments) {
+      source = source.replace(/(\]\()attachment:([^\s)]+)(\))/g, (match, before, name, after) => {
+        const dataUri = cell.attachments[name];
+        return dataUri ? `${before}${dataUri}${after}` : match;
+      });
+    }
+    return renderMarkdownCell(source);
   }
 
   if (!shouldRenderCodeSource(cell)) {
