@@ -22,7 +22,7 @@ Build a VS Code extension that shows a live, scrollable notebook preview in a si
 - Preserve scroll position when incremental updates occur.
 
 ### 3. Selection and Navigation Sync
-- Click a preview cell to reveal/focus corresponding cell in notebook editor.
+- Click a preview cell to reveal/select the corresponding notebook cell and enter edit mode.
 - Follow active notebook cell selection in preview (highlight state).
 - Optional "auto-scroll to active cell" toggle.
 

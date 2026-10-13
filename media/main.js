@@ -363,6 +363,7 @@ function createCellNode(cell) {
   const article = document.createElement("article");
   article.className = getCellClassName(cell);
   article.dataset.cellId = cell.id;
+  article.title = "Click this cell preview to edit it in the notebook";
   article.hidden = isFrontMatterOnly(cell);
 
   const header = document.createElement("header");
@@ -381,7 +382,11 @@ function createCellNode(cell) {
   article.appendChild(body);
   article.appendChild(outputs);
 
-  article.addEventListener("click", () => {
+  article.addEventListener("click", (event) => {
+    // Preserve normal behavior for links and controls inside rendered Markdown.
+    if (event.target instanceof Element && event.target.closest("a, button, input, select, textarea")) {
+      return;
+    }
     vscode.postMessage({ type: "focusCell", id: cell.id });
   });
 
