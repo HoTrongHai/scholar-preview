@@ -35,14 +35,14 @@ export function extractNotebookMeta(
   const firstId = cellOrder[0];
   const firstCell = firstId ? cells[firstId] : undefined;
   if (!firstCell || (firstCell.kind !== "markdown" && firstCell.language !== "raw")) {
-    return { echoDefault: false };
+    return { echoDefault: true };
   }
 
   const lines = firstCell.source.split("\n");
-  if (lines[0].trim() !== "---") { return { echoDefault: false }; }
+  if (lines[0].trim() !== "---") { return { echoDefault: true }; }
 
   const closeIdx = lines.findIndex((l, i) => i > 0 && l.trim() === "---");
-  if (closeIdx < 0) { return { echoDefault: false }; }
+  if (closeIdx < 0) { return { echoDefault: true }; }
 
   const kv: Record<string, string> = {};
   for (const line of lines.slice(1, closeIdx)) {
@@ -52,7 +52,8 @@ export function extractNotebookMeta(
 
   const echoVal = (kv["echo"] ?? "").toLowerCase();
   return {
-    echoDefault: echoVal === "true" || echoVal === "on",
+    // Show source by default in the HTML preview; explicit YAML echo: false/off hides it.
+    echoDefault: echoVal !== "false" && echoVal !== "off",
     title:       kv["title"],
     author:      kv["author"],
     affiliation: kv["affiliation"],

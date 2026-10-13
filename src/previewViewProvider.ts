@@ -291,7 +291,7 @@ export class NotebookPreviewViewProvider {
     this.postMessage(patchMsg);
   }
 
-  private handleWebviewMessage(message: WebviewToHostMessage): void {
+  private async handleWebviewMessage(message: WebviewToHostMessage): Promise<void> {
     if (message.type === "requestFullSync") {
       this.refresh();
       return;
@@ -303,19 +303,31 @@ export class NotebookPreviewViewProvider {
     }
 
     if (message.type === "focusCell") {
-      const editor = vscode.window.activeNotebookEditor;
-      if (!editor || !this.snapshot) {
-        return;
-      }
+      // The preview webview has focus when a cell is clicked, so activeNotebookEditor
+      // may be undefined. Find the owning document from the stable cell URI instead.
+      const notebook = vscode.workspace.notebookDocuments.find((document) =>
+        document.getCells().some((cell) => cell.document.uri.toString() === message.id)
+      );
+      if (!notebook) { return; }
 
-      const index = this.snapshot.cellOrder.indexOf(message.id);
-      if (index < 0) {
-        return;
-      }
+      const index = notebook.getCells().findIndex(
+        (cell) => cell.document.uri.toString() === message.id
+      );
+      if (index < 0) { return; }
 
       const range = new vscode.NotebookRange(index, index + 1);
+      const existingEditor = vscode.window.visibleNotebookEditors.find(
+        (visibleEditor) => visibleEditor.notebook.uri.toString() === notebook.uri.toString()
+      );
+      const editor = await vscode.window.showNotebookDocument(notebook, {
+        viewColumn: existingEditor?.viewColumn ?? vscode.ViewColumn.Beside,
+        preserveFocus: false,
+        selections: [range]
+      });
       editor.selections = [range];
       editor.revealRange(range);
+      // Put the selected cell straight into source editing mode.
+      await vscode.commands.executeCommand("notebook.cell.edit");
       return;
     }
 

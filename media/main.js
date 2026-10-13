@@ -10,7 +10,7 @@ const state = {
   cellOrder: [],
   cellStateById: {},
   nodeById: new Map(),
-  echoDefault: false
+  echoDefault: true
 };
 
 const cellList = document.getElementById("cellList");
@@ -184,7 +184,7 @@ function applyFullSync(snapshot, notebookDir) {
   state.cellOrder = [...snapshot.cellOrder];
   state.cellStateById = { ...snapshot.cells };
   // notebookMeta is computed by the host and carried in the snapshot.
-  state.notebookMeta = snapshot.notebookMeta ?? { echoDefault: false };
+  state.notebookMeta = snapshot.notebookMeta ?? { echoDefault: true };
   state.echoDefault = state.notebookMeta.echoDefault;
 
   state.nodeById.clear();
